@@ -1,13 +1,16 @@
 # Environment variables
 .env
+venv/
 
 # Google Calendar credentials
+credentials/
 credentials.json
 token.json
 
 # Python
 __pycache__/
 *.py[cod]
+*.pyc
 *$py.class
 *.so
 .Python
