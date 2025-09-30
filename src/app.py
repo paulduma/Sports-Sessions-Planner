@@ -5,11 +5,12 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+
+# Streamlit app UX
 st.title("📅 Calendar Manager — MVP")
 tab1, tab2 = st.tabs(["💬 Chat", "📅 Planner"])
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 if "openai_model" not in st.session_state:
     st.session_state["openai_model"] = "gpt-3.5-turbo"
