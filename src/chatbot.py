@@ -3,6 +3,8 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 from datetime import date
+import yaml
+from pathlib import Path
 
 # Load environment variables from .env file
 load_dotenv()
@@ -12,6 +14,56 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Streamlit app UX
 st.title("📅 Calendar Manager — MVP")
 tab1, tab2, tab3 = st.tabs(["💬 Chat", "💬 Chat with recos", "📅 Planner"])
+
+# ---------------- Sidebar ----------------
+with st.sidebar:
+    st.header("⚙️ Settings")
+
+    st.subheader("Preferences")
+    rest_day = st.selectbox(
+        "Weekly rest day",
+        ["None", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        index=0,
+        key="rest_day_selector"
+    )
+
+    duration_min = st.slider(
+        "Typical session duration (min)",
+        min_value=20, max_value=150, value=60, step=10,
+        key="duration_slider"
+    )
+
+    #/*  
+    # ============ Sidebar Configuration Settings ============
+    # st.subheader("AI Model")
+    # st.session_state["openai_model"] = st.selectbox(
+    #     "Choose model",
+    #     ["gpt-3.5-turbo", "gpt-4o-mini"],
+    #     index=0,
+    # )
+    # temperature = st.slider("Creativity (temperature)", 0.0, 1.0, 0.7)
+
+    # st.subheader("Calendar Options")
+    # avoid_conflicts = st.checkbox("Avoid conflicts with existing events", True)
+    # preferred_time = st.radio("Preferred workout time", ["Morning", "Afternoon", "Evening"])
+
+    # st.subheader("Preferences")
+    # rest_day = st.selectbox("Preferred Rest Day", ["None", "Monday", "Friday", "Sunday"])
+    # config_path = st.text_input("Config file path", "config/preferences.yaml")
+    # ========================================================
+
+    # st.divider()
+    # if st.button("🗑️ Clear Chat History"):
+    #    st.session_state.messages = []
+    #    st.success("Chat cleared.")
+
+    # ========================================================
+
+
+# Load prompt instructions from the config file
+PROMPTS_PATH = Path(__file__).parent / "app" / "config.yaml"
+with open(PROMPTS_PATH, "r", encoding="utf-8") as f:
+    PROMPTS = yaml.safe_load(f)
 
 # ---------------- Chat Tab ----------------
 with tab1:
@@ -34,12 +86,23 @@ with tab1:
                 st.markdown(message["content"])
         
      # Chat input bar
-    if prompt := st.chat_input("Type your message..."):
-        # Save user message
-        st.session_state.messages.append({"role": "user", "content": prompt})
+    if prompt := st.chat_input("Type your training request..."):
+
+        # Fill system prompt with sidebar prefs
+        system_prompt = PROMPTS["base_system_prompt"].format(
+            rest_day=rest_day,
+            duration_min=duration_min,
+        )
+
+        # Always start fresh conversation with the system role
+        st.session_state.messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
+        ]
         
         # Display user message in the container
         with messages_container:
+
             with st.chat_message("user"):
                 st.markdown(prompt)
 
@@ -129,28 +192,3 @@ with tab3:
 
     if st.button("🚀 Generate Plan"):
         st.success("✅ Plan generated (placeholder)")
-
-# ---------------- Sidebar ----------------
-with st.sidebar:
-    st.header("⚙️ Settings")
-
-    st.subheader("AI Model")
-    st.session_state["openai_model"] = st.selectbox(
-        "Choose model",
-        ["gpt-3.5-turbo", "gpt-4o-mini"],
-        index=0,
-    )
-    temperature = st.slider("Creativity (temperature)", 0.0, 1.0, 0.7)
-
-    st.subheader("Calendar Options")
-    avoid_conflicts = st.checkbox("Avoid conflicts with existing events", True)
-    preferred_time = st.radio("Preferred workout time", ["Morning", "Afternoon", "Evening"])
-
-    st.subheader("Preferences")
-    rest_day = st.selectbox("Preferred Rest Day", ["None", "Monday", "Friday", "Sunday"])
-    config_path = st.text_input("Config file path", "config/preferences.yaml")
-
-    st.divider()
-    if st.button("🗑️ Clear Chat History"):
-        st.session_state.messages = []
-        st.success("Chat cleared.")
