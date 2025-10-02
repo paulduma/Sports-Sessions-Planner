@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from datetime import date
 import yaml
 from pathlib import Path
+from app.calendar import list_upcoming_events
 
 # Load environment variables from .env file
 load_dotenv()
@@ -192,3 +193,16 @@ with tab3:
 
     if st.button("🚀 Generate Plan"):
         st.success("✅ Plan generated (placeholder)")
+
+    if st.button("🔐 Connect Google Calendar / Test"):
+        try:
+            events = list_upcoming_events(max_results=5)
+            if not events:
+                st.info("Connected ✅ but no upcoming events found.")
+            else:
+                st.success("Connected ✅. Here are your next events:")
+                for e in events:
+                    st.write(f"- **{e['summary']}** — {e['start']}")
+        except Exception as err:
+            st.error(f"Google Calendar connection failed: {err}")
+            st.stop()
