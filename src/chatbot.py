@@ -5,7 +5,9 @@ from dotenv import load_dotenv
 from datetime import date
 import yaml
 from pathlib import Path
-from app.calendar import list_upcoming_events
+from app.calendar import list_upcoming_events, add_sessions_to_calendar
+import json
+# from app.planner import generate_plan
 
 # Load environment variables from .env file
 load_dotenv()
@@ -187,16 +189,38 @@ with tab3:
     st.header("📅 Update your calendar")
 
     week_pick = st.date_input("Select target week", date.today())
-    st.text_area(
+    json_input = st.text_area(
             "Paste your training program", 
             placeholder="E.g. 'Run 3x, gym 2x this week...'")
 
     if st.button("🚀 Generate Plan"):
-        st.success("✅ Plan generated (placeholder)")
+        if not json_input:
+            st.warning("Please paste the generated plan in JSON format.")
+        else:
+            try:
+                sessions = json.loads(json_input)
+
+                # Optional: validate required keys in each session
+                required_keys = {"date", "time", "duration_min", "title", "description"}
+                for i, s in enumerate(sessions):
+                    missing = required_keys - s.keys()
+                    if missing:
+                        st.error(f"Session #{i+1} is missing fields: {missing}")
+                        st.stop()
+
+                # Write to Google Calendar
+                add_sessions_to_calendar(sessions)
+                st.success(f"✅ {len(sessions)} session(s) added to Google Calendar.")
+            except json.JSONDecodeError as e:
+                st.error(f"Invalid JSON: {e}")
+            except Exception as e:
+                st.error(f"Error writing to calendar: {e}")
+                st.exception(e)
 
     if st.button("🔐 Connect Google Calendar / Test"):
         try:
             events = list_upcoming_events(max_results=5)
+            # st.write(events)  # debug print
             if not events:
                 st.info("Connected ✅ but no upcoming events found.")
             else:
@@ -205,4 +229,5 @@ with tab3:
                     st.write(f"- **{e['summary']}** — {e['start']}")
         except Exception as err:
             st.error(f"Google Calendar connection failed: {err}")
+            st.exception(err)  # show full traceback
             st.stop()

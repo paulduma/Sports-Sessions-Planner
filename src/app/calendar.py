@@ -5,7 +5,7 @@ This module provides functionality to authenticate with Google Calendar API
 and retrieve calendar events. It handles OAuth2 authentication flow and
 manages credentials securely.
 
-Key Features:
+Key Features:   
 - OAuth2 authentication with Google Calendar API
 - Automatic token refresh when expired
 - Retrieval of upcoming calendar events
@@ -21,6 +21,7 @@ from __future__ import annotations
 import datetime as dt
 from pathlib import Path
 from typing import List, Dict, Any
+from datetime import datetime, timedelta
 
 # Google API authentication and service libraries
 from google.oauth2.credentials import Credentials
@@ -131,3 +132,27 @@ def list_upcoming_events(max_results: int = 5, calendar_id: str = "primary") -> 
         })
     
     return out
+
+def add_sessions_to_calendar(sessions: List[Dict], calendar_id: str = "primary"):
+    service = get_calendar_service()
+
+    for sess in sessions:
+        start_str = f"{sess['date']}T{sess['time']}:00"
+        start_dt = datetime.strptime(start_str, "%Y-%m-%dT%H:%M:%S")
+        end_dt = start_dt + timedelta(minutes=int(sess["duration_min"]))
+
+        event = {
+            "summary": sess["title"],
+            "description": sess["description"],
+            "start": {
+                "dateTime": start_dt.isoformat(),
+                "timeZone": "Europe/Paris",
+            },
+            "end": {
+                "dateTime": end_dt.isoformat(),
+                "timeZone": "Europe/Paris",
+            },
+        }
+
+        created = service.events().insert(calendarId=calendar_id, body=event).execute()
+        print(f"✅ Created: {created['summary']} on {created['start']['dateTime']}")
