@@ -91,6 +91,7 @@ def list_upcoming_events(max_results: int = 5, calendar_id: str = "primary") -> 
         List[Dict[str, Any]]: List of event dictionaries containing:
             - summary: Event title/name
             - start: Event start time (ISO format)
+            - end: Event end time (ISO format)
             - id: Unique event identifier
             - htmlLink: Direct link to event in Google Calendar
             
@@ -120,15 +121,17 @@ def list_upcoming_events(max_results: int = 5, calendar_id: str = "primary") -> 
     # Process each event and extract relevant information
     for e in events:
         start = e.get("start", {})
-        # Get start time - could be 'dateTime' (timed event) or 'date' (all-day event)
+        end = e.get("end", {})
+        # Could be 'dateTime' (timed event) or 'date' (all-day event)
         start_dt = start.get("dateTime") or start.get("date")
-        
-        # Build simplified event dictionary
+        end_dt = end.get("dateTime") or end.get("date")
+
         out.append({
-            "summary": e.get("summary", "(no title)"),  # Event title
-            "start": start_dt,                          # Start time
-            "id": e.get("id"),                         # Unique event ID
-            "htmlLink": e.get("htmlLink"),             # Link to Google Calendar
+            "summary": e.get("summary", "(no title)"),
+            "start": start_dt,
+            "end": end_dt,
+            "id": e.get("id"),
+            "htmlLink": e.get("htmlLink"),
         })
     
     return out
