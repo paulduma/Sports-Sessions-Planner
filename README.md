@@ -31,3 +31,14 @@ It uses **a single AI model (via OpenAI API)** for parsing and planning, and Pyt
 - **Smarter Scheduling**: AI-driven adjustments, rescheduling missed sessions.
 - **Multi-Agent Setup**: For better specialization (parser, scheduler, calendar manager).
 - **Integrations**: Export to Garmin, Strava, etc.
+
+
+## WIP - Notes
+
+Current workflow ok - Agent returns sessions and it can convert it to google calendar
+** Next steps**
+- Improve / Refine instructions and save them in a config file
+- Format of training must always be list with all steps not missing (date, title, description)
+- Provide these instructions + whole conversation history at each step of the conversation
+- Conflict management to tackle
+- 
