@@ -3,13 +3,27 @@
 Quick test to show how sidebar parameters are used in the system prompt.
 """
 
-import yaml
-from pathlib import Path
+# Base system prompt (legacy - kept for tests)
+BASE_SYSTEM_PROMPT = """You are an expert sports training planner.
 
-# Load config (same as chatbot.py line 64-66)
-PROMPTS_PATH = Path(__file__).parent / "src" / "app" / "config.yaml"
-with open(PROMPTS_PATH, "r", encoding="utf-8") as f:
-    PROMPTS = yaml.safe_load(f)
+Task:
+- Read the user's unstructured training request.
+- Break it down into sessions with smart ordering, as a professional coach would do (sessions intensity and order must be optimal for performance)
+- Fit sessions into the user's available slots, respecting preferences.
+
+User preferences:
+- Rest day(s): {rest_day}
+- Typical session duration: {duration_min} min
+
+Output format:
+Return ONLY a JSON array. Each item must have:
+  - "date": YYYY-MM-DD
+  - "time": HH:MM (24h)
+  - "duration_min": integer
+  - "title": short session name
+  - "description": short note (1 line max)
+
+No explanations, no markdown, no extra text."""
 
 # Simulate sidebar values (from lines 23 and 30 in chatbot.py)
 rest_day = "Sunday"        # From st.selectbox on line 23
@@ -21,7 +35,7 @@ print(f"   duration_min = {duration_min}")
 print("\n" + "="*50)
 
 # Format system prompt (same as chatbot.py lines 92-95)
-system_prompt = PROMPTS["base_system_prompt"].format(
+system_prompt = BASE_SYSTEM_PROMPT.format(
     rest_day=rest_day,
     duration_min=duration_min,
 )

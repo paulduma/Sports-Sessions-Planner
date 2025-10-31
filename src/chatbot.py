@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
+from pathlib import Path
+import yaml
 from app.calendar import list_upcoming_events, add_sessions_to_calendar
 import json
 
@@ -11,6 +13,10 @@ import json
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# Load prompt instructions from the config file
+PROMPTS_PATH = Path(__file__).parent / "app" / "config.yaml"
+with open(PROMPTS_PATH, "r", encoding="utf-8") as f:
+    PROMPTS = yaml.safe_load(f)
 
 # Streamlit app UX
 st.title("🏋️ Calendar Manager — MVP")
@@ -34,38 +40,15 @@ with st.sidebar:
         key="duration_slider"
     )
 
-    #/*  
-    # ============ Sidebar Configuration Settings ============
-    # st.subheader("AI Model")
-    # st.session_state["openai_model"] = st.selectbox(
-    #     "Choose model",
-    #     ["gpt-3.5-turbo", "gpt-4o-mini"],
-    #     index=0,
-    # )
-    # temperature = st.slider("Creativity (temperature)", 0.0, 1.0, 0.7)
+    st.divider()
 
-    # st.subheader("Calendar Options")
-    # avoid_conflicts = st.checkbox("Avoid conflicts with existing events", True)
-    # preferred_time = st.radio("Preferred workout time", ["Morning", "Afternoon", "Evening"])
-
-    # st.subheader("Preferences")
-    # rest_day = st.selectbox("Preferred Rest Day", ["None", "Monday", "Friday", "Sunday"])
-    # config_path = st.text_input("Config file path", "config/preferences.yaml")
-    # ========================================================
-
-    # st.divider()
-    # if st.button("🗑️ Clear Chat History"):
-    #    st.session_state.messages = []
-    #    st.success("Chat cleared.")
-
-    # ========================================================
-
-
-    
+    if st.button("🗑️ Clear Chat History"):
+        st.session_state["messages_tab4"] = []
+        st.success("Chat cleared.")
 
 # ---------------- Chat + Schedule (single interface) ----------------
 with main_container:
-    st.header("🧠 Plan a session and prepare to schedule")
+    st.header("📝 Plan a session and prepare to schedule")
 
     # Initialize isolated state for this tab
     if "messages_tab4" not in st.session_state:
@@ -101,15 +84,12 @@ with main_container:
     else:
         busy_context = "[]"
 
-    plain_text_system = (
-        "You are a helpful training planner. Respond in plain text only, no JSON. "
-        "Propose a clear, human-readable session or weekly plan with dates, times, "
-        "durations, titles, and brief descriptions. Avoid any code blocks or JSON. "
-        f"Assume today's date is {today_str} and interpret all relative dates (e.g., today, tomorrow, next Monday) relative to this date. "
-        f"Weekly rest day: {rest_day}. Typical session duration: {duration_min} minutes. "
-        "Critically: avoid conflicts with existing calendar events. Do not schedule overlapping times. "
-        "If a requested time conflicts, propose the nearest available alternative that preserves spacing and recovery. "
-        "Treat the following as hard busy intervals; do not overlap any: " + busy_context
+    # Load system prompt from config.yaml and fill in variables
+    plain_text_system = PROMPTS["plain_text_system_prompt"].format(
+        today_str=today_str,
+        rest_day=rest_day,
+        duration_min=duration_min,
+        busy_context=busy_context
     )
 
     # Create a container so messages render above the input
@@ -160,12 +140,9 @@ with main_container:
             st.stop()
 
         # Conversion: instruct model to emit strict JSON sessions array
-        convert_system = (
-            "Convert the user's last plan into a strict JSON array of sessions. "
-            "JSON ONLY. No markdown or code fences. Schema per item: "
-            "{ 'date': 'YYYY-MM-DD', 'time': 'HH:MM', 'duration_min': number, 'title': string, 'description': string }. "
-            f"Assume today's date is {date.today().isoformat()} and interpret any relative dates accordingly. "
-            "Ensure times avoid overlaps with these busy intervals (ISO): " + busy_context
+        convert_system = PROMPTS["convert_system_prompt"].format(
+            today_str=date.today().isoformat(),
+            busy_context=busy_context
         )
 
         convert_messages = [

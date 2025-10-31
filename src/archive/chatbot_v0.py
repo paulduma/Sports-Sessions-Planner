@@ -64,10 +64,27 @@ with st.sidebar:
     # ========================================================
 
 
-# Load prompt instructions from the config file
-PROMPTS_PATH = Path(__file__).parent / "app" / "config.yaml"
-with open(PROMPTS_PATH, "r", encoding="utf-8") as f:
-    PROMPTS = yaml.safe_load(f)
+# Base system prompt (legacy - kept in archive)
+BASE_SYSTEM_PROMPT = """You are an expert sports training planner.
+
+Task:
+- Read the user's unstructured training request.
+- Break it down into sessions with smart ordering, as a professional coach would do (sessions intensity and order must be optimal for performance)
+- Fit sessions into the user's available slots, respecting preferences.
+
+User preferences:
+- Rest day(s): {rest_day}
+- Typical session duration: {duration_min} min
+
+Output format:
+Return ONLY a JSON array. Each item must have:
+  - "date": YYYY-MM-DD
+  - "time": HH:MM (24h)
+  - "duration_min": integer
+  - "title": short session name
+  - "description": short note (1 line max)
+
+No explanations, no markdown, no extra text."""
 
 # ---------------- Chat Tab ----------------
 with tab1:
@@ -93,7 +110,7 @@ with tab1:
     if prompt := st.chat_input("Type your training request..."):
 
         # Fill system prompt with sidebar prefs
-        system_prompt = PROMPTS["base_system_prompt"].format(
+        system_prompt = BASE_SYSTEM_PROMPT.format(
             rest_day=rest_day,
             duration_min=duration_min,
         )
