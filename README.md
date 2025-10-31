@@ -7,7 +7,8 @@ Build, test, and explore different approaches using AI agents to schedule my spo
 
 ## Project Overview
 
-This will be a small desktop tool that converts **plain-text sports training programs** into structured sessions and schedules them directly into my **Google Calendar**, using preferences I have set
+This is a small desktop tool that converts **plain-text sports training programs** into structured sessions and schedules them directly into my **Google Calendar**, using preferences I have set.
+
 It uses **a single AI model (via OpenAI API)** for parsing and planning, and Python logic for event creation
 
 
