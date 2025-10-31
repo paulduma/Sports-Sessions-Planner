@@ -105,17 +105,21 @@ with main_container:
     prompt_tab4 = st.chat_input("Describe what you want to schedule...", key="chat_input_tab4")
 
     if prompt_tab4:
-        # Rebuild the messages for the API call to ensure system is first
-        api_messages = [
-            {"role": "system", "content": plain_text_system},
-            {"role": "user", "content": prompt_tab4},
-        ]
-
-        # Save and display user message inside container
+        # Save user message to history first
         st.session_state["messages_tab4"].append({"role": "user", "content": prompt_tab4})
+        
+        # Display user message in container
         with messages_container_tab4:
             with st.chat_message("user"):
                 st.markdown(prompt_tab4)
+
+            # Build API messages with conversation history for context
+            # System prompt always comes first, then full conversation history
+            api_messages = [{"role": "system", "content": plain_text_system}]
+            # Add all previous messages from conversation history (excluding system role)
+            for msg in st.session_state["messages_tab4"]:
+                if msg["role"] != "system":  # Don't duplicate system prompt
+                    api_messages.append({"role": msg["role"], "content": msg["content"]})
 
             # Get assistant response (plain text) and display in container
             with st.chat_message("assistant"):
@@ -126,6 +130,7 @@ with main_container:
                 )
                 response_text = st.write_stream(stream)
 
+        # Save assistant response to history
         st.session_state["messages_tab4"].append({"role": "assistant", "content": response_text})
 
     if st.button("✅ Validate and schedule"):
