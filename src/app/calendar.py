@@ -30,7 +30,7 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
 # Configuration constants
-SCOPES = ["https://www.googleapis.com/auth/calendar"]  # Read access to Google Calendar
+SCOPES = ["https://www.googleapis.com/auth/calendar"]  # Full access to Google Calendar (read/write)
 CREDENTIALS_PATH = Path(__file__).parents[2] / "credentials" / "credentials.json"  # OAuth2 client secrets
 TOKEN_PATH = Path(__file__).parents[2] / "credentials" / "token.json"  # Stored user credentials
 DEFAULT_TZ = "Europe/Paris"  # Default timezone for calendar operations
@@ -61,10 +61,22 @@ def get_calendar_service():
     # Check if credentials are valid or need refresh
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            # Refresh expired credentials using refresh token
-            creds.refresh(Request())
-        else:
+            try:
+                # Refresh expired credentials using refresh token
+                creds.refresh(Request())
+            except Exception as refresh_error:
+                print(f"Token refresh failed: {refresh_error}")
+                # If refresh fails, clear credentials and start new OAuth flow
+                creds = None
+        
+        if not creds or not creds.valid:
             # No valid credentials - start new OAuth flow
+            if not CREDENTIALS_PATH.exists():
+                raise FileNotFoundError(
+                    f"OAuth credentials file not found at {CREDENTIALS_PATH}. "
+                    "Please download your OAuth 2.0 credentials from Google Cloud Console "
+                    "and save them as 'credentials.json' in the credentials folder."
+                )
             # This will open a browser window for user authentication
             flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS_PATH), SCOPES)
             creds = flow.run_local_server(port=0)
