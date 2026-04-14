@@ -19,9 +19,11 @@ Dependencies:
 
 from __future__ import annotations
 import datetime as dt
+import os
 from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 # Google API authentication and service libraries
 from google.oauth2.credentials import Credentials
@@ -33,7 +35,11 @@ from googleapiclient.discovery import build
 SCOPES = ["https://www.googleapis.com/auth/calendar"]  # Full access to Google Calendar (read/write)
 CREDENTIALS_PATH = Path(__file__).parents[2] / "credentials" / "credentials.json"  # OAuth2 client secrets
 TOKEN_PATH = Path(__file__).parents[2] / "credentials" / "token.json"  # Stored user credentials
-DEFAULT_TZ = "Europe/Paris"  # Default timezone for calendar operations
+
+
+def calendar_timezone() -> str:
+    """IANA timezone for interpreting session date/time and Google Calendar writes."""
+    return os.environ.get("TIMEZONE", "Europe/Paris")
 
 def get_calendar_service():
     """
@@ -150,10 +156,13 @@ def list_upcoming_events(max_results: int = 5, calendar_id: str = "primary") -> 
 
 def add_sessions_to_calendar(sessions: List[Dict], calendar_id: str = "primary"):
     service = get_calendar_service()
+    tz_name = calendar_timezone()
+    tz = ZoneInfo(tz_name)
 
     for sess in sessions:
         start_str = f"{sess['date']}T{sess['time']}:00"
-        start_dt = datetime.strptime(start_str, "%Y-%m-%dT%H:%M:%S")
+        start_naive = datetime.strptime(start_str, "%Y-%m-%dT%H:%M:%S")
+        start_dt = start_naive.replace(tzinfo=tz)
         end_dt = start_dt + timedelta(minutes=int(sess["duration_min"]))
 
         event = {
@@ -161,11 +170,11 @@ def add_sessions_to_calendar(sessions: List[Dict], calendar_id: str = "primary")
             "description": sess["description"],
             "start": {
                 "dateTime": start_dt.isoformat(),
-                "timeZone": "Europe/Paris",
+                "timeZone": tz_name,
             },
             "end": {
                 "dateTime": end_dt.isoformat(),
-                "timeZone": "Europe/Paris",
+                "timeZone": tz_name,
             },
         }
 

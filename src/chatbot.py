@@ -1,16 +1,16 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from openai import OpenAI
 import streamlit as st
 import os
-from dotenv import load_dotenv
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
 import yaml
-from app.calendar import list_upcoming_events, add_sessions_to_calendar
+from app.calendar import list_upcoming_events, add_sessions_to_calendar, calendar_timezone
 import json
-
-# Load environment variables from .env file
-load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Load prompt instructions from the config file
@@ -189,7 +189,7 @@ with main_container:
         except Exception as err:
             busy = []
 
-        LOCAL_TZ = ZoneInfo("Europe/Paris")
+        LOCAL_TZ = ZoneInfo(calendar_timezone())
 
         def parse_iso_dt(value: str) -> datetime:
             # Supports both dateTime and all-day date
