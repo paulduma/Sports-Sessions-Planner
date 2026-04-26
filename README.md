@@ -73,6 +73,8 @@ It uses **a single AI model (via OpenAI API)** for parsing and planning, and Pyt
 
 ### Running the application
 
+#### Option A — Streamlit (legacy)
+
 1. **Start the Streamlit app:**
    ```bash
    streamlit run src/chatbot.py
@@ -80,7 +82,28 @@ It uses **a single AI model (via OpenAI API)** for parsing and planning, and Pyt
 
 2. **Open your browser** to the URL shown (typically `http://localhost:8501`)
 
+#### Option B — React web UI + API (new)
+
+1. **Install frontend dependencies** (once):
+   ```bash
+   cd frontend && npm install && cd ..
+   ```
+
+2. **Start the API** (from the project root; uses the same `.env`, prompts, and Calendar code as Streamlit):
+   ```bash
+   PYTHONPATH=src uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
+   ```
+
+3. **Start the Vite dev server** (proxies `/api` to the API):
+   ```bash
+   cd frontend && npm run dev
+   ```
+
+4. Open **http://localhost:5173**. Google Calendar OAuth still runs on the machine hosting the API (first calendar access may open a browser window, same as before).
+
 ### Using the interface
+
+The steps below match the Streamlit app. In the **React** UI, the same preferences live in the left sidebar, chat is in the center, and **Valider et planifier dans l'agenda** corresponds to **Validate and schedule**.
 
 1. **Configure your preferences** in the sidebar:
    - Set your weekly rest day
