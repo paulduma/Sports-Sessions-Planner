@@ -95,22 +95,25 @@ def chat_stream(body: ChatStreamRequest):
     if last.role not in ("user",):
         raise HTTPException(status_code=400, detail="last message must be from user")
 
-    prompts = load_prompts()
-    today_str = date.today().isoformat()
-    intervals = calendar_busy_intervals(max_results=50)
-    busy_ctx = busy_context_string(intervals)
-    system_prompt = build_plain_text_system(
-        prompts,
-        today_str=today_str,
-        rest_day=body.rest_day,
-        duration_min=body.duration_min,
-        busy_context=busy_ctx,
-    )
-
-    client = openai_client()
-    model = body.model or _default_model()
-
-    conv = [{"role": m.role, "content": m.content} for m in body.messages]
+    try:
+        prompts = load_prompts()
+        today_str = date.today().isoformat()
+        intervals = calendar_busy_intervals(max_results=50)
+        busy_ctx = busy_context_string(intervals)
+        system_prompt = build_plain_text_system(
+            prompts,
+            today_str=today_str,
+            rest_day=body.rest_day,
+            duration_min=body.duration_min,
+            busy_context=busy_ctx,
+        )
+        client = openai_client()
+        model = body.model or _default_model()
+        conv = [{"role": m.role, "content": m.content} for m in body.messages]
+    except Exception as err:
+        def init_error_gen():
+            yield _sse_data({"type": "error", "message": f"Chat initialization failed: {err}"})
+        return StreamingResponse(init_error_gen(), media_type="text/event-stream")
 
     def gen():
         try:
