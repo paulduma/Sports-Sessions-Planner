@@ -123,7 +123,7 @@ export function ChatArea({
   return (
     <div className="relative flex h-full flex-1 flex-col bg-white">
       <div className="flex items-center justify-center border-b border-slate-200 bg-[#F1F5F9] p-4 md:hidden">
-        <span className="font-bold tracking-tight text-slate-900">FitPlan AI</span>
+        <span className="font-bold tracking-tight text-slate-900">Sports Planner Perso</span>
       </div>
 
       <div className="scrollbar-hide flex-1 overflow-y-auto p-4 pb-32 md:p-8">
@@ -139,13 +139,11 @@ export function ChatArea({
                 <CalendarPlusIcon size={32} className="text-[#1E3A5F]" />
               </div>
               <h1 className="mb-4 text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
-                Prépare ton{' '}
-                <span className="text-[#1E3A5F]">programme sportif</span>
+                Programe{' '}
+                <span className="text-[#1E3A5F]">d'entraînement</span>
               </h1>
               <p className="mb-10 max-w-lg text-lg text-slate-500">
-                Dis-moi quel est ton objectif. Je vais créer ton plan
-                d&apos;entraînement sur-mesure et le synchroniser avec ton Google
-                Agenda.
+                Préparation des prochains sessions et synchronisation avec Google Agenda.
               </p>
 
               <div className="flex max-w-2xl flex-wrap justify-center gap-3">
@@ -227,8 +225,7 @@ export function ChatArea({
           </form>
           <div className="text-center">
             <span className="text-[11px] text-slate-400">
-              L&apos;IA peut faire des erreurs. Vérifie toujours ton agenda avant de
-              commencer.
+              Version beta - WIP
             </span>
           </div>
         </div>

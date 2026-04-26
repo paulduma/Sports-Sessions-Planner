@@ -13,6 +13,9 @@ type SsePayload =
   | { type: 'done' }
   | { type: 'error'; message: string }
 
+const API_OFFLINE_HINT =
+  'Cannot reach API server. Start backend with: PYTHONPATH=src uvicorn api.main:app --reload --host 127.0.0.1 --port 8000'
+
 function parseSseBlocks(buffer: string): { events: SsePayload[]; rest: string } {
   const events: SsePayload[] = []
   let rest = buffer
@@ -41,15 +44,23 @@ export async function streamChatCompletion(
   durationMin: number,
   onDelta: (chunk: string) => void,
 ): Promise<void> {
-  const res = await fetch('/api/chat/stream', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messages,
-      rest_day: restDay,
-      duration_min: durationMin,
-    }),
-  })
+  let res: Response
+  try {
+    res = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages,
+        rest_day: restDay,
+        duration_min: durationMin,
+      }),
+    })
+  } catch (err) {
+    // Fetch throws TypeError on network failures (API down / proxy target unreachable).
+    throw new Error(
+      err instanceof Error && err.message ? `${API_OFFLINE_HINT} (${err.message})` : API_OFFLINE_HINT,
+    )
+  }
 
   if (!res.ok || !res.body) {
     const text = await res.text().catch(() => '')
@@ -84,15 +95,22 @@ export async function scheduleSessions(
   restDay: string,
   durationMin: number,
 ): Promise<ScheduleResult> {
-  const res = await fetch('/api/schedule', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messages,
-      rest_day: restDay,
-      duration_min: durationMin,
-    }),
-  })
+  let res: Response
+  try {
+    res = await fetch('/api/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages,
+        rest_day: restDay,
+        duration_min: durationMin,
+      }),
+    })
+  } catch (err) {
+    throw new Error(
+      err instanceof Error && err.message ? `${API_OFFLINE_HINT} (${err.message})` : API_OFFLINE_HINT,
+    )
+  }
   const data = (await res.json().catch(() => ({}))) as
     | ScheduleResult
     | { detail?: unknown }

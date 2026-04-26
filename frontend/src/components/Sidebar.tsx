@@ -59,7 +59,7 @@ export function Sidebar({
             <ActivityIcon size={20} className="stroke-[2.5]" />
           </div>
           <span className="text-lg font-bold tracking-tight text-slate-900">
-            FitPlan AI
+            Sports Planner Perso
           </span>
         </div>
 
