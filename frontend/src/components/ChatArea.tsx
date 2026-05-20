@@ -31,6 +31,9 @@ export function ChatArea({
   const [inputValue, setInputValue] = useState('')
   const [busy, setBusy] = useState(false)
   const [statusLine, setStatusLine] = useState<string | null>(null)
+  const [conflictingSessions, setConflictingSessions] = useState<
+    Record<string, unknown>[]
+  >([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -48,6 +51,7 @@ export function ChatArea({
     const text = inputValue.trim()
     setInputValue('')
     setStatusLine(null)
+    setConflictingSessions([])
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -89,6 +93,7 @@ export function ChatArea({
   const handleSchedule = async () => {
     if (!messages.length || busy) return
     setStatusLine(null)
+    setConflictingSessions([])
     setBusy(true)
     try {
       const result = await scheduleSessions(
@@ -96,6 +101,7 @@ export function ChatArea({
         restDay,
         durationMin,
       )
+      setConflictingSessions(result.conflicting_sessions ?? [])
       if (result.ok) {
         const w = result.warnings.filter(Boolean).join(' — ')
         setStatusLine(
@@ -190,6 +196,22 @@ export function ChatArea({
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-center text-xs text-slate-600">
               {statusLine}
             </div>
+          ) : null}
+
+          {conflictingSessions.length > 0 ? (
+            <details className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+              <summary className="cursor-pointer font-medium">
+                {conflictingSessions.length} séance(s) en conflit (non ajoutées)
+              </summary>
+              <ul className="mt-2 list-inside list-disc space-y-1 text-left">
+                {conflictingSessions.map((s, i) => (
+                  <li key={i}>
+                    {String(s.title ?? 'Session')} — {String(s.date ?? '')}{' '}
+                    {String(s.time ?? '')} ({String(s.duration_min ?? '')} min)
+                  </li>
+                ))}
+              </ul>
+            </details>
           ) : null}
 
           {!showWelcome && lastAgentHasText ? (

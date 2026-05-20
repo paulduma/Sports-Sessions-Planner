@@ -14,7 +14,7 @@ type SsePayload =
   | { type: 'error'; message: string }
 
 const API_OFFLINE_HINT =
-  'Cannot reach API server. Start backend with: PYTHONPATH=src uvicorn api.main:app --reload --host 127.0.0.1 --port 8000'
+  'Cannot reach API server. Start backend with: PYTHONPATH=src uvicorn server:app --reload --host 127.0.0.1 --port 8000'
 
 function parseSseBlocks(buffer: string): { events: SsePayload[]; rest: string } {
   const events: SsePayload[] = []

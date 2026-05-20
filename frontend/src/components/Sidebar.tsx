@@ -1,12 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import {
-  MessageSquareIcon,
-  CalendarIcon,
-  SettingsIcon,
-  CheckCircleIcon,
-  ActivityIcon,
-  PlusIcon,
-} from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { CheckCircleIcon, ActivityIcon, PlusIcon } from 'lucide-react'
 
 const REST_DAYS = [
   'None',
@@ -72,13 +65,7 @@ export function Sidebar({
           Nouvelle discussion
         </button>
 
-        <nav className="space-y-1">
-          <NavItem icon={<MessageSquareIcon size={18} />} label="Chat" active />
-          <NavItem icon={<CalendarIcon size={18} />} label="Agenda" />
-          <NavItem icon={<SettingsIcon size={18} />} label="Paramètres" />
-        </nav>
-
-        <div className="mt-8 space-y-4 border-t border-slate-200/80 pt-6">
+        <div className="mt-2 space-y-4 border-t border-slate-200/80 pt-6">
           <p className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Préférences
           </p>
@@ -129,25 +116,5 @@ export function Sidebar({
         </div>
       </div>
     </div>
-  )
-}
-
-function NavItem({
-  icon,
-  label,
-  active = false,
-}: {
-  icon: ReactNode
-  label: string
-  active?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${active ? 'border border-slate-200 bg-white text-[#1E3A5F] shadow-sm' : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'}`}
-    >
-      {icon}
-      {label}
-    </button>
   )
 }
