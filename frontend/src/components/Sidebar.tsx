@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { CheckCircleIcon, ActivityIcon, PlusIcon } from 'lucide-react'
+import {
+  CheckCircleIcon,
+  ActivityIcon,
+  PlusIcon,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
+
+const edgeToggleClass =
+  'absolute -right-3 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900'
 
 const REST_DAYS = [
   'None',
@@ -40,6 +49,7 @@ export function Sidebar({
   durationMin,
   setDurationMin,
 }: SidebarProps) {
+  const [collapsed, setCollapsed] = useState(false)
   const [calendarStatus, setCalendarStatus] = useState<CalendarStatus | null>(
     null,
   )
@@ -63,14 +73,39 @@ export function Sidebar({
   const readCalendars =
     calendarStatus?.calendars?.filter((c) => c.read) ?? []
 
+  if (collapsed) {
+    return (
+      <div className="relative hidden h-full w-3 flex-shrink-0 border-r border-slate-200 bg-[#F1F5F9] md:block">
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          aria-label="Ouvrir le menu"
+          title="Ouvrir le menu"
+          className={edgeToggleClass}
+        >
+          <ChevronRight size={14} />
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="hidden h-full w-[260px] flex-shrink-0 flex-col justify-between border-r border-slate-200 bg-[#F1F5F9] p-4 md:flex">
+    <div className="relative hidden h-full w-[260px] flex-shrink-0 flex-col justify-between border-r border-slate-200 bg-[#F1F5F9] p-4 md:flex">
+      <button
+        type="button"
+        onClick={() => setCollapsed(true)}
+        aria-label="Réduire le menu"
+        title="Réduire le menu"
+        className={edgeToggleClass}
+      >
+        <ChevronLeft size={14} />
+      </button>
       <div>
         <div className="mb-6 flex items-center gap-3 px-2 py-4">
           <div className="rounded-lg bg-[#1E3A5F] p-1.5 text-white shadow-sm">
             <ActivityIcon size={20} className="stroke-[2.5]" />
           </div>
-          <span className="text-lg font-bold tracking-tight text-slate-900">
+          <span className="text-lg font-bold leading-snug tracking-tight text-slate-900">
             Sports Planner Perso
           </span>
         </div>
