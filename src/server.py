@@ -24,10 +24,13 @@ from planner import (  # noqa: E402
     build_plain_text_system,
     busy_context_string,
     calendar_busy_intervals,
+    events_to_busy_intervals,
+    fetch_calendar_events,
     load_prompts,
     openai_client,
     schedule_from_last_assistant,
     stream_chat_completion,
+    upcoming_events_context_string,
 )
 
 app = FastAPI(title="Sports Sessions Planner API")
@@ -106,14 +109,16 @@ def chat_stream(body: ChatStreamRequest):
     try:
         prompts = load_prompts()
         today_str = date.today().isoformat()
-        intervals = calendar_busy_intervals(max_results=50)
-        busy_ctx = busy_context_string(intervals)
+        calendar_events = fetch_calendar_events(max_results=50)
+        busy_ctx = busy_context_string(events_to_busy_intervals(calendar_events))
+        upcoming_ctx = upcoming_events_context_string(calendar_events)
         system_prompt = build_plain_text_system(
             prompts,
             today_str=today_str,
             rest_day=body.rest_day,
             duration_min=body.duration_min,
             busy_context=busy_ctx,
+            upcoming_events=upcoming_ctx,
         )
         client = openai_client()
         model = body.model or _default_model()

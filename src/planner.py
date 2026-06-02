@@ -26,18 +26,25 @@ def load_prompts() -> Dict[str, Any]:
         return yaml.safe_load(f)
 
 
-def calendar_busy_intervals(max_results: int = 50) -> List[Dict[str, str]]:
+def fetch_calendar_events(max_results: int = 50) -> List[Dict[str, Any]]:
     try:
-        upcoming = list_upcoming_events(max_results=max_results)
+        return list(list_upcoming_events(max_results=max_results) or [])
     except Exception:
         return []
+
+
+def events_to_busy_intervals(events: List[Dict[str, Any]]) -> List[Dict[str, str]]:
     out: List[Dict[str, str]] = []
-    for e in upcoming or []:
+    for e in events:
         start_info = e.get("start")
         end_info = e.get("end")
         if start_info and end_info:
             out.append({"start": start_info, "end": end_info})
     return out
+
+
+def calendar_busy_intervals(max_results: int = 50) -> List[Dict[str, str]]:
+    return events_to_busy_intervals(fetch_calendar_events(max_results=max_results))
 
 
 def busy_context_string(intervals: List[Dict[str, str]]) -> str:
@@ -47,18 +54,34 @@ def busy_context_string(intervals: List[Dict[str, str]]) -> str:
     return "[" + ", ".join(parts) + "]"
 
 
+def upcoming_events_context_string(events: List[Dict[str, Any]]) -> str:
+    if not events:
+        return (
+            "(aucun événement à venir — agenda vide ou Google Calendar non connecté)"
+        )
+    lines: List[str] = []
+    for i, e in enumerate(events, 1):
+        title = e.get("summary") or "(sans titre)"
+        start = e.get("start") or "?"
+        end = e.get("end") or "?"
+        lines.append(f"{i}. {title} — du {start} au {end}")
+    return "\n".join(lines)
+
+
 def build_plain_text_system(
     prompts: Dict[str, Any],
     today_str: str,
     rest_day: str,
     duration_min: int,
     busy_context: str,
+    upcoming_events: str,
 ) -> str:
     return prompts["plain_text_system_prompt"].format(
         today_str=today_str,
         rest_day=rest_day,
         duration_min=duration_min,
         busy_context=busy_context,
+        upcoming_events=upcoming_events,
     )
 
 
