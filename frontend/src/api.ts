@@ -16,6 +16,41 @@ type SsePayload =
 const API_OFFLINE_HINT =
   'Cannot reach API server. Start backend with: PYTHONPATH=src uvicorn server:app --reload --host 127.0.0.1 --port 8000'
 
+function formatApiErrorBody(data: unknown, status: number, fallback: string): string {
+  if (data === null || data === undefined) {
+    return `${fallback} (${status})`
+  }
+  if (typeof data === 'object') {
+    const record = data as Record<string, unknown>
+    if ('detail' in record && record.detail !== undefined) {
+      const detail = record.detail
+      if (typeof detail === 'string' && detail.trim()) return detail
+      if (Array.isArray(detail)) {
+        const parts = detail
+          .map((item) => {
+            if (typeof item === 'string') return item
+            if (item && typeof item === 'object' && 'msg' in item) {
+              return String((item as { msg: unknown }).msg)
+            }
+            return JSON.stringify(item)
+          })
+          .filter(Boolean)
+        if (parts.length) return parts.join(' — ')
+      }
+      if (detail && typeof detail === 'object') {
+        const text = JSON.stringify(detail)
+        if (text && text !== '{}') return text
+      }
+    }
+    const keys = Object.keys(record)
+    if (keys.length === 0) return `${fallback} (${status})`
+    const text = JSON.stringify(data)
+    if (text && text !== '{}') return text
+  }
+  if (typeof data === 'string' && data.trim()) return data
+  return `${fallback} (${status})`
+}
+
 function parseSseBlocks(buffer: string): { events: SsePayload[]; rest: string } {
   const events: SsePayload[] = []
   let rest = buffer
@@ -36,6 +71,53 @@ function parseSseBlocks(buffer: string): { events: SsePayload[]; rest: string } 
     }
   }
   return { events, rest }
+}
+
+export type ImportExtractResult = {
+  extracted_text: string
+  source_filename: string
+  page_count?: number
+  user_message: string
+}
+
+export async function importTrainingPlan(file: File): Promise<ImportExtractResult> {
+  const form = new FormData()
+  form.append('file', file)
+
+  let res: Response
+  try {
+    res = await fetch('/api/import/extract', {
+      method: 'POST',
+      body: form,
+    })
+  } catch (err) {
+    throw new Error(
+      err instanceof Error && err.message ? `${API_OFFLINE_HINT} (${err.message})` : API_OFFLINE_HINT,
+    )
+  }
+
+  let data: ImportExtractResult | { detail?: unknown }
+  const raw = await res.text()
+  try {
+    data = raw ? (JSON.parse(raw) as ImportExtractResult | { detail?: unknown }) : {}
+  } catch {
+    throw new Error(
+      raw.trim() || formatApiErrorBody(null, res.status, 'Import échoué'),
+    )
+  }
+
+  if (!res.ok) {
+    throw new Error(formatApiErrorBody(data, res.status, 'Import échoué'))
+  }
+
+  const result = data as ImportExtractResult
+  if (!result.extracted_text?.trim()) {
+    throw new Error('Aucun texte extrait du fichier.')
+  }
+  if (!result.user_message?.trim()) {
+    throw new Error('Réponse serveur invalide (message utilisateur manquant).')
+  }
+  return result
 }
 
 export async function streamChatCompletion(

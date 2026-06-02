@@ -7,9 +7,19 @@ import {
   type SetStateAction,
 } from 'react'
 import { motion } from 'framer-motion'
-import { CalendarPlusIcon, CheckCircle2Icon, SendIcon } from 'lucide-react'
-import { MessageBubble, type Message } from './MessageBubble'
-import { scheduleSessions, streamChatCompletion, type ApiMessage } from '../api'
+import { CalendarPlusIcon, CheckCircle2Icon, PaperclipIcon, SendIcon } from 'lucide-react'
+import {
+  DraftAttachmentBubble,
+  MessageBubble,
+  type Message,
+  type MessageAttachment,
+} from './MessageBubble'
+import {
+  importTrainingPlan,
+  scheduleSessions,
+  streamChatCompletion,
+  type ApiMessage,
+} from '../api'
 import { formatRestDaysForApi } from '../restDays'
 
 interface ChatAreaProps {
@@ -19,8 +29,34 @@ interface ChatAreaProps {
   durationMin: number
 }
 
+type PendingAttachment = {
+  id: string
+  file: File
+  previewUrl: string | null
+}
+
+const ACCEPTED_FILE_TYPES = /^image\/(jpeg|png|webp)$|^application\/pdf$/
+
 function toApiMessages(msgs: Message[]): ApiMessage[] {
   return msgs.map((m) => ({ role: m.role, content: m.content }))
+}
+
+function buildCoachMessage(
+  userText: string,
+  extractedText: string,
+  filename: string,
+): string {
+  const importBlock = `Programme importé depuis \`${filename}\` :\n\n${extractedText}`
+  const tail = 'Propose un planning avec dates et horaires adaptés à mon agenda.'
+  if (userText.trim()) {
+    return `${userText.trim()}\n\n${importBlock}\n\n${tail}`
+  }
+  return `${importBlock}\n\n${tail}`
+}
+
+function buildDisplayContent(userText: string, filename: string): string {
+  if (userText.trim()) return userText.trim()
+  return `Fichier joint : ${filename}`
 }
 
 export function ChatArea({
@@ -31,11 +67,17 @@ export function ChatArea({
 }: ChatAreaProps) {
   const [inputValue, setInputValue] = useState('')
   const [busy, setBusy] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(
+    null,
+  )
   const [statusLine, setStatusLine] = useState<string | null>(null)
   const [conflictingSessions, setConflictingSessions] = useState<
     Record<string, unknown>[]
   >([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const textInputRef = useRef<HTMLTextAreaElement>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -43,44 +85,40 @@ export function ChatArea({
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages, busy])
+  }, [messages, busy, pendingAttachment])
+
+  const removePendingAttachment = () => {
+    setPendingAttachment((current) => {
+      if (current?.previewUrl) URL.revokeObjectURL(current.previewUrl)
+      return null
+    })
+  }
 
   const lastMessage = messages[messages.length - 1]
   const planReady =
     !busy &&
+    !importing &&
     lastMessage?.role === 'agent' &&
     lastMessage.content.trim().length > 0
 
-  const showWelcome = messages.length === 0
+  const showWelcome = messages.length === 0 && !pendingAttachment
+  const inputDisabled = busy || importing
+  const canSend = Boolean(inputValue.trim() || pendingAttachment) && !inputDisabled
 
-  const handleSend = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!inputValue.trim() || busy) return
-
-    const text = inputValue.trim()
-    setInputValue('')
-    setStatusLine(null)
-    setConflictingSessions([])
-
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: text,
-    }
-
+  const streamCoachReply = async (
+    prior: Message[],
+    userMessage: Message,
+    apiContent: string,
+  ) => {
     const assistantId = crypto.randomUUID()
-    const nextThread: Message[] = [
-      ...messages,
-      userMessage,
-      { id: assistantId, role: 'agent', content: '' },
-    ]
-    setMessages(nextThread)
+    setMessages([...prior, userMessage, { id: assistantId, role: 'agent', content: '' }])
     setBusy(true)
 
+    const apiUserMessage: ApiMessage = { role: 'user', content: apiContent }
     let acc = ''
     try {
       await streamChatCompletion(
-        toApiMessages([...messages, userMessage]),
+        [...toApiMessages(prior), apiUserMessage],
         formatRestDaysForApi(restDays),
         durationMin,
         (delta) => {
@@ -99,8 +137,93 @@ export function ChatArea({
     }
   }
 
+  const handleSend = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!canSend) return
+
+    setStatusLine(null)
+    setConflictingSessions([])
+
+    const userText = inputValue.trim()
+    const attachment = pendingAttachment
+
+    if (attachment) {
+      const { file, previewUrl } = attachment
+      const filename = file.name
+      const messageAttachment: MessageAttachment = {
+        filename,
+        previewUrl: previewUrl ?? undefined,
+        mimeType: file.type,
+      }
+      const displayContent = buildDisplayContent(userText, filename)
+
+      setPendingAttachment(null)
+      setInputValue('')
+
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: displayContent,
+        attachment: messageAttachment,
+      }
+
+      setImporting(true)
+      setStatusLine('Analyse du fichier…')
+
+      try {
+        const result = await importTrainingPlan(file)
+        setStatusLine(null)
+        const coachText = buildCoachMessage(
+          userText,
+          result.extracted_text,
+          filename,
+        )
+        await streamCoachReply(messages, userMessage, coachText)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Échec de l\'import'
+        setStatusLine(msg && msg !== '{}' ? msg : 'Échec de l\'import du fichier.')
+        setMessages((prev) => [...prev, userMessage])
+      } finally {
+        setImporting(false)
+      }
+      return
+    }
+
+    const text = userText
+    setInputValue('')
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: text,
+    }
+    await streamCoachReply(messages, userMessage, text)
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || inputDisabled) return
+
+    const mime = file.type.toLowerCase()
+    if (!ACCEPTED_FILE_TYPES.test(mime)) {
+      setStatusLine('Format non supporté. Utilise une image (JPEG, PNG, WebP) ou un PDF.')
+      return
+    }
+
+    setStatusLine(null)
+    setConflictingSessions([])
+
+    if (pendingAttachment?.previewUrl) {
+      URL.revokeObjectURL(pendingAttachment.previewUrl)
+    }
+
+    const previewUrl = mime.startsWith('image/') ? URL.createObjectURL(file) : null
+    setPendingAttachment({ id: crypto.randomUUID(), file, previewUrl })
+    textInputRef.current?.focus()
+  }
+
   const handleSchedule = async () => {
-    if (!messages.length || busy) return
+    if (!messages.length || busy || importing) return
     setStatusLine(null)
     setConflictingSessions([])
     setBusy(true)
@@ -188,7 +311,7 @@ export function ChatArea({
                 <MessageBubble key={msg.id} message={msg} />
               ))}
 
-              {!busy && planReady ? (
+              {!busy && !importing && planReady ? (
                 <div className="mb-4 flex justify-center">
                   <button
                     type="button"
@@ -200,10 +323,21 @@ export function ChatArea({
                   </button>
                 </div>
               ) : null}
-
-              <div ref={messagesEndRef} />
             </div>
           )}
+
+          {pendingAttachment ? (
+            <div className={showWelcome ? 'mt-8' : ''}>
+              <DraftAttachmentBubble
+                filename={pendingAttachment.file.name}
+                previewUrl={pendingAttachment.previewUrl}
+                mimeType={pendingAttachment.file.type}
+                onRemove={removePendingAttachment}
+              />
+            </div>
+          ) : null}
+
+          <div ref={messagesEndRef} />
         </div>
       </div>
 
@@ -233,16 +367,44 @@ export function ChatArea({
 
           <form onSubmit={handleSend} className="group relative">
             <input
-              type="text"
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
+              className="hidden"
+              onChange={handleFileSelect}
+              disabled={inputDisabled}
+            />
+            <textarea
+              ref={textInputRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Décris ton objectif sportif..."
-              disabled={busy}
-              className="w-full rounded-2xl border border-slate-200 bg-white py-4 pl-6 pr-16 text-[15px] text-slate-900 shadow-lg placeholder:text-slate-400 transition-all focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-60"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  void handleSend()
+                }
+              }}
+              rows={Math.min(8, Math.max(1, inputValue.split('\n').length))}
+              placeholder={
+                pendingAttachment
+                  ? 'Ajoute du contexte (optionnel)…'
+                  : 'Décris ton objectif sportif...'
+              }
+              disabled={inputDisabled}
+              className="scrollbar-hide w-full resize-none rounded-2xl border border-slate-200 bg-white py-4 pl-14 pr-16 text-[15px] leading-relaxed text-slate-900 shadow-lg placeholder:text-slate-400 transition-all focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-60"
             />
             <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={inputDisabled}
+              title="Importer une image ou un PDF"
+              className="absolute bottom-2 left-2 top-2 flex aspect-square items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-[#1E3A5F] disabled:opacity-40"
+            >
+              <PaperclipIcon size={18} />
+            </button>
+            <button
               type="submit"
-              disabled={!inputValue.trim() || busy}
+              disabled={!canSend}
               className="absolute bottom-2 right-2 top-2 flex aspect-square items-center justify-center rounded-xl bg-[#1E3A5F] text-white transition-colors hover:bg-[#2a4f7a] disabled:opacity-40"
             >
               <SendIcon size={18} className="ml-0.5" />

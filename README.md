@@ -7,7 +7,8 @@ A personal sports coach chatbot that reads your Google Calendar, proposes traini
 ## How it works
 
 1. **Chat** — Describe your training goals; the assistant proposes a plain-text plan using your calendar busy times, rest day, and session duration preferences.
-2. **Validate & schedule** — Confirm the plan; a second step converts it to JSON, checks conflicts, and adds events to Google Calendar.
+2. **Import file** — Upload an image or PDF (paperclip in the chat). Text is extracted, injected into the chat for review, then the coach proposes dated sessions like a normal conversation.
+3. **Validate & schedule** — Confirm the plan; a second step converts it to JSON, checks conflicts, and adds events to Google Calendar.
 
 ## Prerequisites
 
@@ -36,7 +37,10 @@ Optional:
 TIMEZONE=Europe/Paris
 GOOGLE_CALENDAR_IDS=primary,your-work-calendar-id@gmail.com
 GOOGLE_WRITE_CALENDAR_ID=primary
+OPENAI_VISION_MODEL=gpt-4o
 ```
+
+`OPENAI_VISION_MODEL` is used when importing training plans from images or scanned PDFs (requires a vision-capable model). Chat and scheduling can stay on the default `gpt-3.5-turbo`.
 
 ### Multi-calendar (work + personal)
 
@@ -59,14 +63,22 @@ Place `credentials/credentials.json` from Google Cloud Console. On first calenda
 
 Two terminals from the project root:
 
-**1. API**
+**1. API** (uses project venv + installs deps)
+
+```bash
+chmod +x scripts/start-api.sh   # once
+./scripts/start-api.sh
+```
+
+Or manually:
 
 ```bash
 source venv/bin/activate
+pip install -r requirements.txt
 # If OpenAI calls fail behind a corporate proxy, clear proxy env for local dev:
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
 export NO_PROXY="localhost,127.0.0.1,api.openai.com,.openai.com"
-PYTHONPATH=src uvicorn server:app --reload --host 127.0.0.1 --port 8000
+PYTHONPATH=src ./venv/bin/python -m uvicorn server:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Port 8000 already in use: `lsof -ti:8000 | xargs kill`
@@ -86,6 +98,7 @@ Open **http://localhost:5173**. Vite proxies `/api` to the API on port 8000.
 ```
 src/
   planner.py          # Chat + schedule logic (OpenAI, conflicts)
+  document_import.py  # Image/PDF text extraction for file import
   google_calendar.py  # Google Calendar OAuth, read/write
   config.yaml         # Coach prompts
   server.py           # FastAPI routes (thin HTTP layer)
@@ -96,9 +109,11 @@ credentials/          # OAuth client + token (gitignored token)
 ## Using the interface
 
 1. Set **rest day** and **typical session duration** in the sidebar.
-2. Chat with the assistant about your training goals.
+2. Chat with the assistant about your training goals, or **import** an image/PDF via the paperclip button.
 3. Click **Valider et planifier dans l'agenda** when the plan looks good.
 4. Conflicting sessions are skipped (see the conflicts list if any).
+
+Supported import formats: JPEG, PNG, WebP, PDF (text layer or scanned, up to 10 pages for vision).
 
 ## Tests
 
@@ -107,6 +122,8 @@ source venv/bin/activate
 PYTHONPATH=src python3 src/tests/test_prompt_parameters.py
 PYTHONPATH=src python3 src/tests/test_calendar_config.py
 PYTHONPATH=src python3 src/tests/test_server_chat_stream.py
+PYTHONPATH=src python3 src/tests/test_document_import.py
+PYTHONPATH=src python3 src/tests/test_server_import_extract.py
 curl http://127.0.0.1:8000/api/health
 ```
 

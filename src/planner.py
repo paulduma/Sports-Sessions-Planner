@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Tuple
 from zoneinfo import ZoneInfo
 
+import httpx
 import yaml
 from openai import OpenAI
 
@@ -68,6 +69,14 @@ def upcoming_events_context_string(events: List[Dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def build_import_user_message(extracted_text: str, filename: str) -> str:
+    return (
+        f"Programme importé depuis `{filename}` :\n\n"
+        f"{extracted_text}\n\n"
+        "Propose un planning avec dates et horaires adaptés à mon agenda."
+    )
+
+
 def build_plain_text_system(
     prompts: Dict[str, Any],
     today_str: str,
@@ -86,7 +95,11 @@ def build_plain_text_system(
 
 
 def openai_client() -> OpenAI:
-    return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    # Bypass broken local HTTP_PROXY (common in Cursor/corporate shells).
+    return OpenAI(
+        api_key=os.getenv("OPENAI_API_KEY"),
+        http_client=httpx.Client(trust_env=False),
+    )
 
 
 def stream_chat_completion(

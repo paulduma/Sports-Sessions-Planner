@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from openai import APIConnectionError, APIStatusError
 from pydantic import BaseModel, Field
 
 _SRC = Path(__file__).resolve().parent
@@ -21,6 +22,7 @@ if str(_SRC) not in sys.path:
 load_dotenv(_SRC.parent / ".env")
 
 from planner import (  # noqa: E402
+    build_import_user_message,
     build_plain_text_system,
     busy_context_string,
     calendar_busy_intervals,
@@ -141,6 +143,72 @@ def chat_stream(body: ChatStreamRequest):
             yield _sse_data({"type": "error", "message": str(err)})
 
     return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+def _document_import_module():
+    try:
+        import document_import
+    except ImportError as err:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Dépendance pymupdf manquante dans ce Python. "
+                "Lance l'API avec : ./scripts/start-api.sh "
+                "(ou : source venv/bin/activate && pip install -r requirements.txt). "
+                f"Détail : {err}"
+            ),
+        ) from err
+    return document_import
+
+
+@app.post("/api/import/extract")
+async def import_extract(file: UploadFile = File(...)) -> Dict[str, Any]:
+    raw = await file.read()
+    filename = file.filename or "upload"
+    doc = _document_import_module()
+    mime = doc.resolve_mime_type(raw, file.content_type, filename)
+
+    try:
+        prompts = load_prompts()
+        extraction_prompt = prompts.get("import_extraction_prompt", "").strip()
+        if not extraction_prompt:
+            raise HTTPException(status_code=500, detail="import_extraction_prompt not configured")
+
+        result = doc.extract_training_plan_text(
+            raw,
+            mime,
+            client=openai_client(),
+            extraction_prompt=extraction_prompt,
+        )
+        return {
+            "extracted_text": result["extracted_text"],
+            "source_filename": filename,
+            **({"page_count": result["page_count"]} if "page_count" in result else {}),
+            "user_message": build_import_user_message(result["extracted_text"], filename),
+        }
+    except doc.UnsupportedMediaTypeError as err:
+        raise HTTPException(status_code=415, detail=str(err)) from err
+    except doc.FileTooLargeError as err:
+        raise HTTPException(status_code=413, detail=str(err)) from err
+    except doc.EmptyExtractionError as err:
+        raise HTTPException(status_code=422, detail=str(err)) from err
+    except APIConnectionError as err:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Connexion OpenAI impossible. Vérifie OPENAI_API_KEY et relance l'API "
+                "sans proxy (unset HTTP_PROXY HTTPS_PROXY)."
+            ),
+        ) from err
+    except APIStatusError as err:
+        raise HTTPException(
+            status_code=502,
+            detail=f"OpenAI a refusé l'analyse : {err.message}",
+        ) from err
+    except HTTPException:
+        raise
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=f"Extraction failed: {err}") from err
 
 
 @app.post("/api/schedule")
