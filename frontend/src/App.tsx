@@ -21,12 +21,14 @@ export function App() {
         durationMin={durationMin}
         setDurationMin={setDurationMin}
       />
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <ChatArea
         messages={messages}
         setMessages={setMessages}
         restDay={restDay}
         durationMin={durationMin}
       />
+      </main>
     </div>
   )
 }

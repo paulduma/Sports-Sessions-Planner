@@ -1,123 +1,81 @@
 # Sports Calendar Manager
 
-## 🎯 Goal
+## Goal
 
-Build, test, and explore different approaches using AI agents to schedule my sports sessions
+A personal sports coach chatbot that reads your Google Calendar, proposes training sessions in free slots, and writes confirmed sessions back to Calendar.
 
+## How it works
 
-## Project Overview
+1. **Chat** — Describe your training goals; the assistant proposes a plain-text plan using your calendar busy times, rest day, and session duration preferences.
+2. **Validate & schedule** — Confirm the plan; a second step converts it to JSON, checks conflicts, and adds events to Google Calendar.
 
-This is a small desktop tool that converts **plain-text sports training programs** into structured sessions and schedules them directly into my **Google Calendar**, using preferences I have set.
+## Prerequisites
 
-It uses **a single AI model (via OpenAI API)** for parsing and planning, and Python logic for event creation
+1. **Python 3.8+**
+2. **OpenAI API key** — [platform.openai.com](https://platform.openai.com/api-keys)
+3. **Google Calendar API credentials** — [OAuth quickstart](https://developers.google.com/calendar/api/quickstart/python)
 
+## Setup
 
-## MVP Core features 
+```bash
+cd Sports-Sessions-Planner
+python3 -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-1. **Text Input of Training Programs**
-    - Users provide request to plan training sessions as plain text in the chat
-2. **Agent Parsing & Planning**
-    - The AI agent scans the agenda to find free slots
-    - The agent schedules the training sessions in free slots using preferences, and sports logic (respect rest days, escalate intensity during the week..) 
-    - Outputs a planned list of sessions with suggested scheduling.
-    - Takes feedbacks from user and updates the sessions accordingly
-3. **Calendar Integration**
-    - Another AI agent converts the plain text list to JSON
-    - It uses Python logic to add events to Google Agenda
+Create `.env` in the project root:
 
+```
+OPENAI_API_KEY=your_openai_api_key_here
+```
 
-## Long term ambition / ideas
+Optional: `TIMEZONE=Europe/Paris`
 
-- **Refined Interfaces**: design front ideas
-- **New Input Types**: PDF, images, URLs, voice input (e.g input a race preparation program in pdf)
-- **Integrations**: Export to Garmin, Strava, etc.
-- **MCP server**: try existing MCP servers to replace the Python functions used to get and write events from and to google agenda
+Place `credentials/credentials.json` from Google Cloud Console. On first calendar access, complete OAuth in the browser; `credentials/token.json` is saved automatically.
 
----
+## Run (React UI + API)
 
-## 🚀 How to use it
+Two terminals:
 
-### Prerequisites
+**1. API**
 
-1. **Python 3.8+** installed
-2. **OpenAI API key** - Get one from [OpenAI](https://platform.openai.com/api-keys)
-3. **Google Calendar API credentials** - Follow [Google's OAuth setup guide](https://developers.google.com/calendar/api/quickstart/python)
+```bash
+PYTHONPATH=src uvicorn server:app --reload --host 127.0.0.1 --port 8000
+```
 
-### Setup
+**2. Frontend**
 
-1. **Clone and navigate to the project:**
-   ```bash
-   cd Sports-Sessions-Planner
-   ```
+```bash
+cd frontend && npm install && npm run dev
+```
 
-2. **Create and activate a virtual environment:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+Open **http://localhost:5173**. Vite proxies `/api` to the API on port 8000.
 
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+## Project layout
 
-4. **Configure API keys:**
-   - Create a `.env` file in the project root:
-     ```
-     OPENAI_API_KEY=your_openai_api_key_here
-     ```
-   
-5. **Set up Google Calendar API:**
-   - Place your `credentials.json` file in the `credentials/` folder
-   - The app will automatically handle OAuth authentication on first run
+```
+src/
+  planner.py          # Chat + schedule logic (OpenAI, conflicts)
+  google_calendar.py  # Google Calendar OAuth, read/write
+  config.yaml         # Coach prompts
+  server.py           # FastAPI routes (thin HTTP layer)
+frontend/             # Vite + React UI
+credentials/          # OAuth client + token (gitignored token)
+```
 
-### Running the application
+## Using the interface
 
-#### Option A — Streamlit (legacy)
+1. Set **rest day** and **typical session duration** in the sidebar.
+2. Chat with the assistant about your training goals.
+3. Click **Valider et planifier dans l'agenda** when the plan looks good.
+4. Conflicting sessions are skipped (see the conflicts list if any).
 
-1. **Start the Streamlit app:**
-   ```bash
-   streamlit run src/chatbot.py
-   ```
+## Tests
 
-2. **Open your browser** to the URL shown (typically `http://localhost:8501`)
+```bash
+PYTHONPATH=src python3 src/tests/test_prompt_parameters.py
+curl http://127.0.0.1:8000/api/health
+```
 
-#### Option B — React web UI + API (new)
-
-1. **Install frontend dependencies** (once):
-   ```bash
-   cd frontend && npm install && cd ..
-   ```
-
-2. **Start the API** (from the project root; uses the same `.env`, prompts, and Calendar code as Streamlit):
-   ```bash
-   PYTHONPATH=src uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
-   ```
-
-3. **Start the Vite dev server** (proxies `/api` to the API):
-   ```bash
-   cd frontend && npm run dev
-   ```
-
-4. Open **http://localhost:5173**. Google Calendar OAuth still runs on the machine hosting the API (first calendar access may open a browser window, same as before).
-
-### Using the interface
-
-The steps below match the Streamlit app. In the **React** UI, the same preferences live in the left sidebar, chat is in the center, and **Valider et planifier dans l'agenda** corresponds to **Validate and schedule**.
-
-1. **Configure your preferences** in the sidebar:
-   - Set your weekly rest day
-   - Set your typical session duration
-
-2. **Chat with the assistant:**
-   - Describe your training goals in plain text (e.g., "I want to run 3 times this week, with one long run on Saturday")
-   - The assistant will propose a schedule that avoids conflicts with your existing calendar events
-   - You can ask for modifications or clarifications - the conversation history is maintained
-
-3. **Validate and schedule:**
-   - Once you're happy with the proposed plan, click "✅ Validate and schedule"
-   - The app will convert the plan to structured format, check for conflicts, and add sessions to your Google Calendar
-   - Conflicting sessions will be skipped with a warning
-
-4. **Clear chat history** (optional):
-   - Use the "🗑️ Clear Chat History" button in the sidebar to start a new conversation
+See [docs/golden-path.md](docs/golden-path.md) for manual regression steps.

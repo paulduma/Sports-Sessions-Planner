@@ -1,3 +1,5 @@
+"""Thin FastAPI HTTP adapter for the sports planner."""
+
 from __future__ import annotations
 
 import json
@@ -12,14 +14,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-# Ensure `src` is importable when running: uvicorn api.main:app
-_SRC = Path(__file__).resolve().parents[1]
+_SRC = Path(__file__).resolve().parent
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 load_dotenv(_SRC.parent / ".env")
 
-from app.chat_service import (  # noqa: E402
+from planner import (  # noqa: E402
     build_plain_text_system,
     busy_context_string,
     calendar_busy_intervals,
@@ -74,9 +75,8 @@ def health() -> Dict[str, str]:
 
 @app.get("/api/calendar/status")
 def calendar_status() -> Dict[str, Any]:
-    """Probe Google Calendar read access (same path as planning)."""
     try:
-        from app.calendar import list_upcoming_events
+        from google_calendar import list_upcoming_events
 
         upcoming = list_upcoming_events(max_results=1)
         return {"connected": True, "busy_sample_count": len(upcoming or [])}
@@ -113,6 +113,7 @@ def chat_stream(body: ChatStreamRequest):
     except Exception as err:
         def init_error_gen():
             yield _sse_data({"type": "error", "message": f"Chat initialization failed: {err}"})
+
         return StreamingResponse(init_error_gen(), media_type="text/event-stream")
 
     def gen():

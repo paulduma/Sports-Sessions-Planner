@@ -42,7 +42,15 @@ export function ChatArea({
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages])
+  }, [messages, busy])
+
+  const lastMessage = messages[messages.length - 1]
+  const planReady =
+    !busy &&
+    lastMessage?.role === 'agent' &&
+    lastMessage.content.trim().length > 0
+
+  const showWelcome = messages.length === 0
 
   const handleSend = async (e: FormEvent) => {
     e.preventDefault()
@@ -120,20 +128,14 @@ export function ChatArea({
     }
   }
 
-  const lastAgentHasText = [...messages]
-    .reverse()
-    .find((m) => m.role === 'agent' && m.content.trim())
-
-  const showWelcome = messages.length === 0
-
   return (
-    <div className="relative flex h-full flex-1 flex-col bg-white">
-      <div className="flex items-center justify-center border-b border-slate-200 bg-[#F1F5F9] p-4 md:hidden">
+    <div className="flex h-full min-h-0 flex-1 flex-col bg-white">
+      <div className="flex shrink-0 items-center justify-center border-b border-slate-200 bg-[#F1F5F9] p-4 md:hidden">
         <span className="font-bold tracking-tight text-slate-900">Sports Planner Perso</span>
       </div>
 
-      <div className="scrollbar-hide flex-1 overflow-y-auto p-4 pb-32 md:p-8">
-        <div className="mx-auto flex h-full w-full max-w-3xl flex-col">
+      <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="mx-auto w-full max-w-4xl xl:max-w-5xl">
           {showWelcome ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -184,14 +186,28 @@ export function ChatArea({
               {messages.map((msg) => (
                 <MessageBubble key={msg.id} message={msg} />
               ))}
-              <div ref={messagesEndRef} className="h-4" />
+
+              {!busy && planReady ? (
+                <div className="mb-4 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={handleSchedule}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-[#1E3A5F] shadow-sm transition-colors hover:bg-slate-50"
+                  >
+                    <CheckCircle2Icon size={16} />
+                    Valider et planifier dans l&apos;agenda
+                  </button>
+                </div>
+              ) : null}
+
+              <div ref={messagesEndRef} />
             </div>
           )}
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white to-transparent px-4 pb-6 pt-12 md:px-8">
-        <div className="mx-auto max-w-3xl space-y-3">
+      <div className="shrink-0 border-t border-slate-100 bg-white px-4 pb-6 pt-4 md:px-8">
+        <div className="mx-auto max-w-4xl space-y-3 xl:max-w-5xl">
           {statusLine ? (
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-center text-xs text-slate-600">
               {statusLine}
@@ -212,20 +228,6 @@ export function ChatArea({
                 ))}
               </ul>
             </details>
-          ) : null}
-
-          {!showWelcome && lastAgentHasText ? (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={handleSchedule}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-[#1E3A5F] shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <CheckCircle2Icon size={16} />
-                Valider et planifier dans l&apos;agenda
-              </button>
-            </div>
           ) : null}
 
           <form onSubmit={handleSend} className="group relative">

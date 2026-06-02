@@ -1,4 +1,4 @@
-"""Shared chat + scheduling logic (extracted from Streamlit chatbot.py)."""
+"""Chat + scheduling logic (canonical; extracted from chatbot.py)."""
 
 from __future__ import annotations
 
@@ -6,13 +6,13 @@ import json
 import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Tuple
 from zoneinfo import ZoneInfo
 
 import yaml
 from openai import OpenAI
 
-from app.calendar import (
+from google_calendar import (
     add_sessions_to_calendar,
     calendar_timezone,
     list_upcoming_events,
