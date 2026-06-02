@@ -10,11 +10,12 @@ import { motion } from 'framer-motion'
 import { CalendarPlusIcon, CheckCircle2Icon, SendIcon } from 'lucide-react'
 import { MessageBubble, type Message } from './MessageBubble'
 import { scheduleSessions, streamChatCompletion, type ApiMessage } from '../api'
+import { formatRestDaysForApi } from '../restDays'
 
 interface ChatAreaProps {
   messages: Message[]
   setMessages: Dispatch<SetStateAction<Message[]>>
-  restDay: string
+  restDays: string[]
   durationMin: number
 }
 
@@ -25,7 +26,7 @@ function toApiMessages(msgs: Message[]): ApiMessage[] {
 export function ChatArea({
   messages,
   setMessages,
-  restDay,
+  restDays,
   durationMin,
 }: ChatAreaProps) {
   const [inputValue, setInputValue] = useState('')
@@ -80,7 +81,7 @@ export function ChatArea({
     try {
       await streamChatCompletion(
         toApiMessages([...messages, userMessage]),
-        restDay,
+        formatRestDaysForApi(restDays),
         durationMin,
         (delta) => {
           acc += delta
@@ -106,7 +107,7 @@ export function ChatArea({
     try {
       const result = await scheduleSessions(
         toApiMessages(messages),
-        restDay,
+        formatRestDaysForApi(restDays),
         durationMin,
       )
       setConflictingSessions(result.conflicting_sessions ?? [])

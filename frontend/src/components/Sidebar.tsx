@@ -5,21 +5,12 @@ import {
   PlusIcon,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
 } from 'lucide-react'
+import { formatRestDaysLabel, weekdayLabelFr, WEEKDAYS } from '../restDays'
 
 const edgeToggleClass =
   'absolute -right-3 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900'
-
-const REST_DAYS = [
-  'None',
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-] as const
 
 type CalendarInfo = {
   id: string
@@ -36,16 +27,16 @@ type CalendarStatus = {
 
 interface SidebarProps {
   onNewChat: () => void
-  restDay: string
-  setRestDay: (value: string) => void
+  restDays: string[]
+  setRestDays: (value: string[]) => void
   durationMin: number
   setDurationMin: (value: number) => void
 }
 
 export function Sidebar({
   onNewChat,
-  restDay,
-  setRestDay,
+  restDays,
+  setRestDays,
   durationMin,
   setDurationMin,
 }: SidebarProps) {
@@ -123,20 +114,51 @@ export function Sidebar({
           <p className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Préférences
           </p>
-          <label className="block px-1 text-xs font-medium text-slate-600">
-            Jour de repos
-            <select
-              value={restDay}
-              onChange={(e) => setRestDay(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-800 shadow-sm"
-            >
-              {REST_DAYS.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </label>
+          <details className="group px-1 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none rounded-lg border border-slate-200 bg-white px-2 py-2 shadow-sm transition-colors hover:bg-slate-50">
+              <span className="block text-xs font-medium text-slate-600">
+                Jours de repos
+              </span>
+              <span className="mt-0.5 flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-sm text-slate-800">
+                  {formatRestDaysLabel(restDays)}
+                </span>
+                <ChevronDown
+                  size={16}
+                  className="flex-shrink-0 text-slate-400 transition-transform group-open:rotate-180"
+                  aria-hidden
+                />
+              </span>
+            </summary>
+            <div className="mt-2 space-y-1.5 rounded-lg border border-slate-200 bg-white px-2 py-2 shadow-sm">
+              <p className="px-1 text-[10px] text-slate-400">
+                Un ou plusieurs jours sans entraînement.
+              </p>
+              {WEEKDAYS.map((day) => {
+                const checked = restDays.includes(day)
+                return (
+                  <label
+                    key={day}
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-0.5 text-sm text-slate-800 hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        setRestDays(
+                          checked
+                            ? restDays.filter((d) => d !== day)
+                            : [...restDays, day],
+                        )
+                      }}
+                      className="h-3.5 w-3.5 rounded border-slate-300 accent-[#1E3A5F]"
+                    />
+                    {weekdayLabelFr(day)}
+                  </label>
+                )
+              })}
+            </div>
+          </details>
           <label className="block px-1 text-xs font-medium text-slate-600">
             Durée typique (min): {durationMin}
             <input

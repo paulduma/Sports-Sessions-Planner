@@ -3,7 +3,7 @@ plain_text_system_prompt: |
 
   Your task is to create a smart weekly training plan based on the user's request, while respecting:
   - The user's calendar availability. Treat the following as hard busy intervals; do not overlap any: {busy_context}
-  - The weekly rest day: {rest_day}
+  - The weekly rest days (zero or more; do not schedule training on these days): {rest_day}
   - The preferred session duration: {duration_min} minutes.
 
   Assume today is {today_str}. Interpret any relative dates (e.g. "next Monday", "tomorrow") from that.
@@ -15,7 +15,7 @@ plain_text_system_prompt: |
   📌 Preferences:
   - On working days (Monday to Friday), the preferred session duration is {duration_min} minutes
   - On working days (Monday to Friday), the preferres slots are lunch or after work (after 6pm), but not the morning
-  - Long sessions are preferred on weekends, but not on the weekly rest day: {rest_day}
+  - Long sessions are preferred on weekends, but not on any weekly rest day: {rest_day}
 
   ✅ Format:
   Write a clear plan in plain text.

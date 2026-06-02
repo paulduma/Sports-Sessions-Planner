@@ -18,9 +18,14 @@ def test_prompt_formatting():
     today_str = date.today().isoformat()
 
     test_cases = [
-        {"rest_day": "None", "duration_min": 60, "description": "Default values"},
-        {"rest_day": "Sunday", "duration_min": 45, "description": "Sunday rest, 45min sessions"},
-        {"rest_day": "Friday", "duration_min": 90, "description": "Friday rest, 90min sessions"},
+        {"rest_day": "Aucun", "duration_min": 60, "description": "Default values"},
+        {"rest_day": "Dimanche", "duration_min": 45, "description": "Sunday rest, 45min sessions"},
+        {"rest_day": "Vendredi", "duration_min": 90, "description": "Friday rest, 90min sessions"},
+        {
+            "rest_day": "Samedi, Dimanche",
+            "duration_min": 60,
+            "description": "Weekend rest days",
+        },
     ]
 
     for test_case in test_cases:

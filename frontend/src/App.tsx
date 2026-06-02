@@ -5,7 +5,7 @@ import type { Message } from './components/MessageBubble'
 
 export function App() {
   const [messages, setMessages] = useState<Message[]>([])
-  const [restDay, setRestDay] = useState('None')
+  const [restDays, setRestDays] = useState<string[]>([])
   const [durationMin, setDurationMin] = useState(60)
 
   const handleNewChat = () => {
@@ -16,8 +16,8 @@ export function App() {
     <div className="flex h-screen w-full overflow-hidden bg-white font-sans selection:bg-blue-500/20">
       <Sidebar
         onNewChat={handleNewChat}
-        restDay={restDay}
-        setRestDay={setRestDay}
+        restDays={restDays}
+        setRestDays={setRestDays}
         durationMin={durationMin}
         setDurationMin={setDurationMin}
       />
@@ -25,7 +25,7 @@ export function App() {
       <ChatArea
         messages={messages}
         setMessages={setMessages}
-        restDay={restDay}
+        restDays={restDays}
         durationMin={durationMin}
       />
       </main>
