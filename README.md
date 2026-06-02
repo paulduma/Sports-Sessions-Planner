@@ -38,24 +38,45 @@ GOOGLE_CALENDAR_IDS=primary,your-work-calendar-id@gmail.com
 GOOGLE_WRITE_CALENDAR_ID=primary
 ```
 
-`GOOGLE_CALENDAR_IDS` lists calendars used for busy-time detection (comma-separated). Defaults to `primary` only. `GOOGLE_WRITE_CALENDAR_ID` is where confirmed sessions are created (defaults to the first read calendar).
+### Multi-calendar (work + personal)
+
+`GOOGLE_CALENDAR_IDS` lists calendars used for **busy-time detection** (comma-separated). Defaults to `primary` only.
+
+`GOOGLE_WRITE_CALENDAR_ID` is where confirmed sessions are created (defaults to the first read calendar).
+
+Use calendar IDs from the sidebar after OAuth (each connected calendar shows its name and whether it is used for read or write). A work calendar must be **visible to the Google account you authenticate with** — subscribe to or import it into that account first; an `@company.com` address alone is not enough if OAuth runs on a personal Gmail.
+
+Example:
+
+```
+GOOGLE_CALENDAR_IDS=primary,abc123@group.calendar.google.com
+GOOGLE_WRITE_CALENDAR_ID=primary
+```
 
 Place `credentials/credentials.json` from Google Cloud Console. On first calendar access, complete OAuth in the browser; `credentials/token.json` is saved automatically.
 
 ## Run (React UI + API)
 
-Two terminals:
+Two terminals from the project root:
 
 **1. API**
 
 ```bash
+source venv/bin/activate
+# If OpenAI calls fail behind a corporate proxy, clear proxy env for local dev:
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+export NO_PROXY="localhost,127.0.0.1,api.openai.com,.openai.com"
 PYTHONPATH=src uvicorn server:app --reload --host 127.0.0.1 --port 8000
 ```
+
+Port 8000 already in use: `lsof -ti:8000 | xargs kill`
 
 **2. Frontend**
 
 ```bash
-cd frontend && npm install && npm run dev
+cd frontend
+npm install   # first time only
+npm run dev
 ```
 
 Open **http://localhost:5173**. Vite proxies `/api` to the API on port 8000.
@@ -82,7 +103,10 @@ credentials/          # OAuth client + token (gitignored token)
 ## Tests
 
 ```bash
+source venv/bin/activate
 PYTHONPATH=src python3 src/tests/test_prompt_parameters.py
+PYTHONPATH=src python3 src/tests/test_calendar_config.py
+PYTHONPATH=src python3 src/tests/test_server_chat_stream.py
 curl http://127.0.0.1:8000/api/health
 ```
 

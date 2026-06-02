@@ -68,6 +68,15 @@ def _sse_data(obj: Dict[str, Any]) -> str:
     return f"data: {json.dumps(obj, ensure_ascii=False)}\n\n"
 
 
+def _sse_error_stream(message: str) -> StreamingResponse:
+    """Return HTTP 200 SSE with a structured error (avoids opaque 500 before first yield)."""
+
+    def gen():
+        yield _sse_data({"type": "error", "message": message})
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
 @app.get("/api/health")
 def health() -> Dict[str, str]:
     return {"status": "ok"}
@@ -110,10 +119,7 @@ def chat_stream(body: ChatStreamRequest):
         model = body.model or _default_model()
         conv = [{"role": m.role, "content": m.content} for m in body.messages]
     except Exception as err:
-        def init_error_gen():
-            yield _sse_data({"type": "error", "message": f"Chat initialization failed: {err}"})
-
-        return StreamingResponse(init_error_gen(), media_type="text/event-stream")
+        return _sse_error_stream(f"Chat initialization failed: {err}")
 
     def gen():
         try:
