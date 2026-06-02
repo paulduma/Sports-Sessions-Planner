@@ -12,6 +12,19 @@ const REST_DAYS = [
   'Sunday',
 ] as const
 
+type CalendarInfo = {
+  id: string
+  summary: string
+  read: boolean
+  write: boolean
+}
+
+type CalendarStatus = {
+  connected?: boolean
+  calendars?: CalendarInfo[]
+  error?: string
+}
+
 interface SidebarProps {
   onNewChat: () => void
   restDay: string
@@ -27,22 +40,28 @@ export function Sidebar({
   durationMin,
   setDurationMin,
 }: SidebarProps) {
-  const [calendarOk, setCalendarOk] = useState<boolean | null>(null)
+  const [calendarStatus, setCalendarStatus] = useState<CalendarStatus | null>(
+    null,
+  )
 
   useEffect(() => {
     let cancelled = false
     fetch('/api/calendar/status')
       .then((r) => r.json())
-      .then((body: { connected?: boolean }) => {
-        if (!cancelled) setCalendarOk(Boolean(body.connected))
+      .then((body: CalendarStatus) => {
+        if (!cancelled) setCalendarStatus(body)
       })
       .catch(() => {
-        if (!cancelled) setCalendarOk(false)
+        if (!cancelled) setCalendarStatus({ connected: false })
       })
     return () => {
       cancelled = true
     }
   }, [])
+
+  const calendarOk = calendarStatus?.connected ?? null
+  const readCalendars =
+    calendarStatus?.calendars?.filter((c) => c.read) ?? []
 
   return (
     <div className="hidden h-full w-[260px] flex-shrink-0 flex-col justify-between border-r border-slate-200 bg-[#F1F5F9] p-4 md:flex">
@@ -98,22 +117,43 @@ export function Sidebar({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
-        <div className="rounded-full bg-emerald-50 p-1 text-emerald-600">
-          <CheckCircleIcon size={14} />
+      <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div
+            className={`rounded-full p-1 ${calendarOk ? 'bg-emerald-50 text-emerald-600' : calendarOk === false ? 'bg-slate-100 text-slate-400' : 'bg-slate-100 text-slate-400'}`}
+          >
+            <CheckCircleIcon size={14} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-xs font-medium text-slate-800">
+              Google Calendar
+            </span>
+            <p className="text-[10px] text-slate-400">
+              {calendarOk === null
+                ? 'Vérification…'
+                : calendarOk
+                  ? 'Synchronisé'
+                  : 'Hors ligne ou non connecté'}
+            </p>
+          </div>
         </div>
-        <div className="flex flex-col">
-          <span className="text-xs font-medium text-slate-800">
-            Google Calendar
-          </span>
-          <span className="text-[10px] text-slate-400">
-            {calendarOk === null
-              ? 'Vérification…'
-              : calendarOk
-                ? 'Synchronisé'
-                : 'Hors ligne ou non connecté'}
-          </span>
-        </div>
+
+        {calendarOk && readCalendars.length > 0 ? (
+          <ul className="mt-2 space-y-1 border-t border-slate-100 pt-2">
+            {readCalendars.map((cal) => (
+              <li
+                key={cal.id}
+                className="truncate text-[10px] text-slate-500"
+                title={cal.id}
+              >
+                <span className="font-medium text-slate-600">
+                  {cal.summary}
+                </span>
+                {cal.write ? ' · écriture' : ' · lecture'}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </div>
   )

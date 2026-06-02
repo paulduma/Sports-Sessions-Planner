@@ -22,6 +22,26 @@ CREDENTIALS_PATH = _REPO_ROOT / "credentials" / "credentials.json"
 TOKEN_PATH = _REPO_ROOT / "credentials" / "token.json"
 
 
+def _parse_calendar_ids(raw: str | None) -> List[str]:
+    if not raw or not raw.strip():
+        return ["primary"]
+    ids = [part.strip() for part in raw.split(",") if part.strip()]
+    return ids or ["primary"]
+
+
+def read_calendar_ids() -> List[str]:
+    """Calendar IDs to read for busy context and conflict checks."""
+    return _parse_calendar_ids(os.environ.get("GOOGLE_CALENDAR_IDS"))
+
+
+def write_calendar_id() -> str:
+    """Calendar ID where training sessions are created."""
+    raw = os.environ.get("GOOGLE_WRITE_CALENDAR_ID", "").strip()
+    if raw:
+        return raw
+    return read_calendar_ids()[0]
+
+
 def calendar_timezone() -> str:
     """IANA timezone for interpreting session date/time and Google Calendar writes."""
     return os.environ.get("TIMEZONE", "Europe/Paris")
@@ -56,39 +76,140 @@ def get_calendar_service():
     return build("calendar", "v3", credentials=creds)
 
 
-def list_upcoming_events(max_results: int = 5, calendar_id: str = "primary") -> List[Dict[str, Any]]:
+def list_accessible_calendars() -> List[Dict[str, str]]:
+    """Return id + summary for calendars visible to the authenticated account."""
     service = get_calendar_service()
-    now_utc = dt.datetime.utcnow().isoformat() + "Z"
+    res = service.calendarList().list().execute()
+    out: List[Dict[str, str]] = []
+    for entry in res.get("items", []):
+        cal_id = entry.get("id")
+        if not cal_id:
+            continue
+        out.append({
+            "id": cal_id,
+            "summary": entry.get("summary", cal_id),
+            "primary": str(entry.get("primary", False)).lower(),
+        })
+    return out
 
+
+def _event_start_sort_key(event: Dict[str, Any]) -> str:
+    start = event.get("start")
+    if isinstance(start, str):
+        return start
+    if isinstance(start, dict):
+        return start.get("dateTime") or start.get("date") or ""
+    return ""
+
+
+def _normalize_event(event: Dict[str, Any], calendar_id: str) -> Dict[str, Any]:
+    start = event.get("start", {})
+    end = event.get("end", {})
+    start_dt = start.get("dateTime") or start.get("date")
+    end_dt = end.get("dateTime") or end.get("date")
+    return {
+        "summary": event.get("summary", "(no title)"),
+        "start": start_dt,
+        "end": end_dt,
+        "id": event.get("id"),
+        "htmlLink": event.get("htmlLink"),
+        "calendarId": calendar_id,
+    }
+
+
+def _list_events_for_calendar(
+    service: Any,
+    calendar_id: str,
+    *,
+    time_min: str,
+    max_results: int,
+) -> List[Dict[str, Any]]:
     res = service.events().list(
         calendarId=calendar_id,
-        timeMin=now_utc,
+        timeMin=time_min,
         maxResults=max_results,
         singleEvents=True,
         orderBy="startTime",
     ).execute()
+    return [
+        _normalize_event(e, calendar_id)
+        for e in res.get("items", [])
+    ]
 
-    events = res.get("items", [])
-    out: List[Dict[str, Any]] = []
 
-    for e in events:
-        start = e.get("start", {})
-        end = e.get("end", {})
-        start_dt = start.get("dateTime") or start.get("date")
-        end_dt = end.get("dateTime") or end.get("date")
+def list_upcoming_events(
+    max_results: int = 5,
+    calendar_ids: List[str] | None = None,
+) -> List[Dict[str, Any]]:
+    """Fetch upcoming events from one or more calendars, merged by start time."""
+    ids = calendar_ids if calendar_ids is not None else read_calendar_ids()
+    if not ids:
+        return []
 
-        out.append({
-            "summary": e.get("summary", "(no title)"),
-            "start": start_dt,
-            "end": end_dt,
-            "id": e.get("id"),
-            "htmlLink": e.get("htmlLink"),
+    service = get_calendar_service()
+    now_utc = dt.datetime.utcnow().isoformat() + "Z"
+    merged: List[Dict[str, Any]] = []
+
+    for cal_id in ids:
+        try:
+            merged.extend(
+                _list_events_for_calendar(
+                    service,
+                    cal_id,
+                    time_min=now_utc,
+                    max_results=max_results,
+                )
+            )
+        except Exception as err:
+            print(f"Failed to list events for calendar {cal_id}: {err}")
+
+    merged.sort(key=_event_start_sort_key)
+    return merged[:max_results]
+
+
+def calendar_connection_status(max_results: int = 1) -> Dict[str, Any]:
+    """Connection probe plus read/write calendar configuration for the UI."""
+    read_ids = read_calendar_ids()
+    write_id = write_calendar_id()
+    upcoming = list_upcoming_events(max_results=max_results, calendar_ids=read_ids)
+
+    accessible = list_accessible_calendars()
+    accessible_by_id = {c["id"]: c for c in accessible}
+    read_set = set(read_ids)
+    calendars: List[Dict[str, Any]] = []
+
+    for cal_id in read_ids:
+        meta = accessible_by_id.get(cal_id, {})
+        calendars.append({
+            "id": cal_id,
+            "summary": meta.get("summary", cal_id),
+            "read": True,
+            "write": cal_id == write_id,
         })
 
-    return out
+    if write_id not in read_set:
+        meta = accessible_by_id.get(write_id, {})
+        calendars.append({
+            "id": write_id,
+            "summary": meta.get("summary", write_id),
+            "read": False,
+            "write": True,
+        })
+
+    return {
+        "connected": True,
+        "busy_sample_count": len(upcoming),
+        "read_calendar_ids": read_ids,
+        "write_calendar_id": write_id,
+        "calendars": calendars,
+    }
 
 
-def add_sessions_to_calendar(sessions: List[Dict], calendar_id: str = "primary"):
+def add_sessions_to_calendar(
+    sessions: List[Dict],
+    calendar_id: str | None = None,
+):
+    target_calendar = calendar_id or write_calendar_id()
     service = get_calendar_service()
     tz_name = calendar_timezone()
     tz = ZoneInfo(tz_name)
@@ -112,5 +233,5 @@ def add_sessions_to_calendar(sessions: List[Dict], calendar_id: str = "primary")
             },
         }
 
-        created = service.events().insert(calendarId=calendar_id, body=event).execute()
+        created = service.events().insert(calendarId=target_calendar, body=event).execute()
         print(f"Created: {created['summary']} on {created['start']['dateTime']}")

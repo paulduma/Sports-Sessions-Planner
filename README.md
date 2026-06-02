@@ -30,7 +30,15 @@ Create `.env` in the project root:
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-Optional: `TIMEZONE=Europe/Paris`
+Optional:
+
+```
+TIMEZONE=Europe/Paris
+GOOGLE_CALENDAR_IDS=primary,your-work-calendar-id@gmail.com
+GOOGLE_WRITE_CALENDAR_ID=primary
+```
+
+`GOOGLE_CALENDAR_IDS` lists calendars used for busy-time detection (comma-separated). Defaults to `primary` only. `GOOGLE_WRITE_CALENDAR_ID` is where confirmed sessions are created (defaults to the first read calendar).
 
 Place `credentials/credentials.json` from Google Cloud Console. On first calendar access, complete OAuth in the browser; `credentials/token.json` is saved automatically.
 

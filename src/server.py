@@ -76,10 +76,9 @@ def health() -> Dict[str, str]:
 @app.get("/api/calendar/status")
 def calendar_status() -> Dict[str, Any]:
     try:
-        from google_calendar import list_upcoming_events
+        from google_calendar import calendar_connection_status
 
-        upcoming = list_upcoming_events(max_results=1)
-        return {"connected": True, "busy_sample_count": len(upcoming or [])}
+        return calendar_connection_status(max_results=1)
     except FileNotFoundError as err:
         return {"connected": False, "error": str(err)}
     except Exception as err:
